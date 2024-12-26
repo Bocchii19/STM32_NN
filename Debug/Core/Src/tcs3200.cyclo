@@ -1,0 +1,3 @@
+../Core/Src/tcs3200.c:6:6:TCS3200_Init	1
+../Core/Src/tcs3200.c:14:6:TCS3200_SetFrequencyScaling	5
+../Core/Src/tcs3200.c:34:10:TCS3200_ReadFrequency	5

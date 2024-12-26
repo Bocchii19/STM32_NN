@@ -56,7 +56,6 @@
 /* Private macro -------------------------------------------------------------*/
 /* USER CODE BEGIN PM */
 volatile uint32_t pulse_count = 0;
-
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
@@ -77,22 +76,6 @@ static void MX_I2C1_Init(void);
 static void MX_TIM2_Init(void);
 static void MX_USART1_UART_Init(void);
 /* USER CODE BEGIN PFP */
-volatile uint8_t buttonPressed = 0; // Trạng thái nút nhấn
-volatile uint8_t displayPaused = 0; // Trạng thái hiển thị
-
-// Hàm đọc nút nhấn với chống rung
-void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
-{
-    if (GPIO_Pin == GPIO_PIN_5) // Kiểm tra nếu ngắt từ PA5
-    {
-        HAL_Delay(50); // Chống rung phím (Debounce delay)
-        if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_5) == GPIO_PIN_RESET) // Nếu nút vẫn được nhấn
-        {
-            buttonPressed = 1; // Đánh dấu nút đã được nhấn
-        }
-    }
-}
-
 void TCS3200_Init(void){
 	HAL_GPIO_WritePin(S0_GPIO_Port, S0_Pin, GPIO_PIN_SET);
 	HAL_GPIO_WritePin(S1_GPIO_Port, S1_Pin, GPIO_PIN_RESET);
@@ -133,7 +116,7 @@ uint8_t NormalizeToRGB(uint32_t freq, uint32_t minFreq, uint32_t maxFreq) {
     if (freq > maxFreq) freq = maxFreq;
     return (uint8_t)(((freq - minFreq) * 255) / (maxFreq - minFreq));
 }
-
+uint32_t RGB[3];
 void TCS3200_ReadRGB(uint32_t *red, uint32_t *green, uint32_t *blue) {
     uint32_t rawRed, rawGreen, rawBlue;
 
@@ -156,64 +139,100 @@ void TCS3200_ReadRGB(uint32_t *red, uint32_t *green, uint32_t *blue) {
     *blue = NormalizeToRGB(rawBlue, BLUE_Min, BLUE_Max);
 }
 
+
+void CheckAndStoreRGB() {
+    static uint8_t buttonPressed = 0; // Biến trạng thái nút (0: chưa nhấn, 1: đã nhấn)
+    uint32_t red, green, blue;
+    uint32_t buffer[12];
+    // Kiểm tra trạng thái nút
+    if (HAL_GPIO_ReadPin(BUTTON_Port, BUTTON) == GPIO_PIN_SET) { // Nút nhấn (kích hoạt mức thấp)
+        if (buttonPressed == 0) { // Nếu nút vừa được nhấn
+            buttonPressed = 1; // Đánh dấu nút đã được nhấn
+
+            // Đọc giá trị RGB tại thời điểm nhấn
+            TCS3200_ReadRGB(&red, &green, &blue);
+
+            // Lưu giá trị vào mảng RGB
+            RGB[0] = red;
+            RGB[1] = green;
+            RGB[2] = blue;
+
+            // Debug hoặc hiển thị giá trị (nếu cần
+             // Hiển thị lên màn hình SSD1306
+             SSD1306_Clear();
+             sprintf(buffer, "Red: %lu", RGB[0]);
+             SSD1306_GotoXY(0, 0);
+             SSD1306_Puts(buffer, &Font_11x18, 1);
+
+             sprintf(buffer, "Green: %lu", RGB[1]);
+             SSD1306_GotoXY(0, 20);
+             SSD1306_Puts(buffer, &Font_11x18, 1);
+
+             sprintf(buffer, "Blue: %lu", RGB[2]);
+             SSD1306_GotoXY(0, 40);
+             SSD1306_Puts(buffer, &Font_11x18, 1);
+
+             SSD1306_UpdateScreen();
+             HAL_Delay(200);
+        }
+    } else {
+        buttonPressed = 0; // Reset trạng thái khi nút được thả
+    }
+}
+/* USER CODE END PFP */
+
+/* Private user code ---------------------------------------------------------*/
+/* USER CODE BEGIN 0 */
+
+/* USER CODE END 0 */
+
+/**
+  * @brief  The application entry point.
+  * @retval int
+  */
 int main(void)
 {
 
+  /* USER CODE BEGIN 1 */
+
+  /* USER CODE END 1 */
+
+  /* MCU Configuration--------------------------------------------------------*/
+
+  /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
   HAL_Init();
+
+  /* USER CODE BEGIN Init */
+
+  /* USER CODE END Init */
+
+  /* Configure the system clock */
   SystemClock_Config();
+
+  /* USER CODE BEGIN SysInit */
+
+  /* USER CODE END SysInit */
+
+  /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_I2C1_Init();
   MX_TIM2_Init();
   MX_USART1_UART_Init();
-
   /* USER CODE BEGIN 2 */
   SSD1306_Init();
   TCS3200_Init();
-
   /* USER CODE END 2 */
   uint32_t red, green, blue;
   uint8_t buffer[20];
+  uint32_t rgb[3];
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
     /* USER CODE END WHILE */
-	    if (HAL_GPIO_ReadPin(GPIOA, BUTTON) == GPIO_PIN_SET) // Nếu nút được nhấn
-	    {
-	        HAL_Delay(50); // Chống rung phím
-	        if (HAL_GPIO_ReadPin(GPIOA, BUTTON) == GPIO_PIN_SET) // Kiểm tra lại nút
-	        {
-	            buttonPressed = 1; // Đánh dấu nút đã nhấn
-	        }
-	    }
+	  CheckAndStoreRGB();
 
-	    if (buttonPressed)
-	    {
-	        displayPaused = !displayPaused; // Đổi trạng thái hiển thị
-	        buttonPressed = 0;             // Đặt lại trạng thái nút nhấn
-	    }
-
-	    if (!displayPaused) // Nếu không tạm dừng hiển thị
-	    {
-	        // Đọc giá trị RGB từ cảm biến
-	        TCS3200_ReadRGB(&red, &green, &blue);
-
-	        // Hiển thị dữ liệu lên màn hình SSD1306
-	        SSD1306_Clear();
-	        sprintf(buffer, "Red: %lu", red);
-	        SSD1306_GotoXY(0, 0);
-	        SSD1306_Puts(buffer, &Font_11x18, 1);
-
-	        sprintf(buffer, "Green: %lu", green);
-	        SSD1306_GotoXY(0, 20);
-	        SSD1306_Puts(buffer, &Font_11x18, 1);
-
-	        sprintf(buffer, "Blue: %lu", blue);
-	        SSD1306_GotoXY(0, 40);
-	        SSD1306_Puts(buffer, &Font_11x18, 1);
-
-	        SSD1306_UpdateScreen();
-	    }
+    /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */
 }

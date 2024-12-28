@@ -52,6 +52,12 @@ default.size.stdout \
 OBJDUMP_LIST += \
 ColorSorter.list \
 
+OBJCOPY_HEX += \
+ColorSorter.hex \
+
+OBJCOPY_BIN += \
+ColorSorter.bin \
+
 
 # All Target
 all: main-build
@@ -75,12 +81,22 @@ ColorSorter.list: $(EXECUTABLES) makefile objects.list $(OPTIONAL_TOOL_DEPS)
 	@echo 'Finished building: $@'
 	@echo ' '
 
+ColorSorter.hex: $(EXECUTABLES) makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-objcopy  -O ihex $(EXECUTABLES) "ColorSorter.hex"
+	@echo 'Finished building: $@'
+	@echo ' '
+
+ColorSorter.bin: $(EXECUTABLES) makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-objcopy  -O binary $(EXECUTABLES) "ColorSorter.bin"
+	@echo 'Finished building: $@'
+	@echo ' '
+
 # Other Targets
 clean:
-	-$(RM) ColorSorter.elf ColorSorter.list ColorSorter.map default.size.stdout
+	-$(RM) ColorSorter.bin ColorSorter.elf ColorSorter.hex ColorSorter.list ColorSorter.map default.size.stdout
 	-@echo ' '
 
-secondary-outputs: $(SIZE_OUTPUT) $(OBJDUMP_LIST)
+secondary-outputs: $(SIZE_OUTPUT) $(OBJDUMP_LIST) $(OBJCOPY_HEX) $(OBJCOPY_BIN)
 
 fail-specified-linker-script-missing:
 	@echo 'Error: Cannot find the specified linker script. Check the linker settings in the build configuration.'
